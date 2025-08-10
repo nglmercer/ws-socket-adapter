@@ -1,0 +1,9 @@
+dist/
+node_modules/
+*.md
+*.json
+*.yml
+*.yaml
+.eslintrc.js
+bun.lock
+package-lock.json
