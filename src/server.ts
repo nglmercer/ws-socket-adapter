@@ -1,16 +1,12 @@
-// Main exports for the ws-socketio-adapter library
-export { Emitter } from './Emitter.js';
-export { SocketIOLikeClient } from './client/ws-adapter.js';
+// Server-side exports only - Node.js environment
 export { SocketIOLikeServer, SocketIOLikeSocket, wsio, Namespace } from './server/SocketIOLikeAdapter.js';
+export { Emitter } from './Emitter.js';
 
-// Re-export subpath entrypoints for convenience
-export * as client from './client.js';
-export * as server from './server.js';
+// Server-only logging utilities
+export { logger, createLogger, defaultLogger, log, LoggerFactory, ComponentLogger, ComponentType } from './logger/index.js';
+export type { LoggerFactoryConfig } from './logger/LoggerFactory.js';
 
-// Type exports - Legacy interfaces
-export type { User, Room, CustomSocket, ISocket } from './types.js';
-
-// Type exports - Enhanced Socket.IO compatible interfaces
+// Server-only types
 export type {
   // Generic event interfaces
   EventMap,
@@ -34,8 +30,6 @@ export type {
   AnyEventCallback,
 
   // Options
-  ClientOptions,
-  ExtendedClientOptions,
   ServerOptions,
   ExtendedServerOptions,
 
@@ -46,7 +40,6 @@ export type {
 
   // Socket interfaces
   SocketIOSocket,
-  SocketIOClient,
   BroadcastOperator,
 
   // Enhanced types
@@ -68,5 +61,11 @@ export type {
   EnhancedConnectionState,
   EnhancedServerState,
   NamespaceState,
-  RoomState
+  RoomState,
+
+  // Legacy
+  User,
+  Room,
+  CustomSocket,
+  ISocket,
 } from './types.js';
