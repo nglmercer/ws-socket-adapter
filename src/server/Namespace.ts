@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Emitter } from '../Emitter.js';
 import { SocketIOLikeSocket } from './SocketIOLikeAdapter.js';
-import { logger } from '../logger/index.js';
+import { logger, createLogger } from '../logger/index.js';
 
 // Enhanced interface for broadcast operator with better typing and additional methods
 interface BroadcastOperator {
@@ -27,20 +27,45 @@ export class Namespace extends EventEmitter {
   public sockets: Map<string, SocketIOLikeSocket> = new Map();
   private rooms: Map<string, Set<string>> = new Map();
   private emitter: Emitter;
-  private middleware: Array<(socket: SocketIOLikeSocket, next: (err?: Error) => void) => void> = [];
-  private eventMiddleware: Array<(socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void> = [];
+  private middleware: Array<
+    (socket: SocketIOLikeSocket, next: (err?: Error) => void) => void
+  > = [];
+  private logger: ReturnType<typeof createLogger.namespace>;
+  private eventMiddleware: Array<
+    (
+      socket: SocketIOLikeSocket,
+      event: string,
+      data: any[],
+      next: (err?: Error) => void
+    ) => void
+  > = [];
 
   constructor(name: string) {
     super();
     this.name = name;
     this.emitter = new Emitter();
-    
-    logger.info(`Namespace created: ${name}`, {});
+    this.logger = createLogger.namespace(name);
+
+    this.logger.info('namespace_created', `Namespace created: ${name}`, {
+      namespaceName: name,
+    });
   }
 
   // Add middleware to this namespace
-  use(middleware: (socket: SocketIOLikeSocket, next: (err?: Error) => void) => void): this;
-  use(middleware: (socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void): this;
+  use(
+    middleware: (
+      socket: SocketIOLikeSocket,
+      next: (err?: Error) => void
+    ) => void
+  ): this;
+  use(
+    middleware: (
+      socket: SocketIOLikeSocket,
+      event: string,
+      data: any[],
+      next: (err?: Error) => void
+    ) => void
+  ): this;
   use(middleware: any): this {
     // Check if it's event middleware (4 parameters) or connection middleware (2 parameters)
     if (middleware.length === 4) {
@@ -86,20 +111,23 @@ export class Namespace extends EventEmitter {
     try {
       // Execute middleware chain
       await this.executeMiddleware(socket);
-      
+
       // Add socket to namespace
       this.sockets.set(socket.id, socket);
-      
+
       // Set namespace reference on socket
       (socket as any).nsp = this;
-      
+
       // Emit connection event on namespace
       this.emitter.emit('connection', socket);
       super.emit('connection', socket);
-      
+
       logger.info(`Socket ${socket.id} added to namespace ${this.name}`, {});
     } catch (error) {
-      logger.error(`Error adding socket ${socket.id} to namespace ${this.name}:`, error);
+      logger.error(
+        `Error adding socket ${socket.id} to namespace ${this.name}:`,
+        error
+      );
       // Emit connection error
       this.emitter.emit('connect_error', error, socket);
       super.emit('connect_error', error, socket);
@@ -120,7 +148,7 @@ export class Namespace extends EventEmitter {
 
       // Remove from namespace
       this.sockets.delete(socketId);
-      
+
       logger.info(`Socket ${socketId} removed from namespace ${this.name}`, {});
     }
   }
@@ -130,9 +158,12 @@ export class Namespace extends EventEmitter {
     if (!this.rooms.has(room)) {
       this.rooms.set(room, new Set());
     }
-    
+
     this.rooms.get(room)!.add(socketId);
-    logger.info(`Socket ${socketId} added to room ${room} in namespace ${this.name}`, {});
+    logger.info(
+      `Socket ${socketId} added to room ${room} in namespace ${this.name}`,
+      {}
+    );
   }
 
   // Remove socket from room within this namespace
@@ -140,13 +171,16 @@ export class Namespace extends EventEmitter {
     const roomSockets = this.rooms.get(room);
     if (roomSockets) {
       roomSockets.delete(socketId);
-      
+
       // Clean up empty rooms
       if (roomSockets.size === 0) {
         this.rooms.delete(room);
       }
-      
-      logger.info(`Socket ${socketId} removed from room ${room} in namespace ${this.name}`, {});
+
+      logger.info(
+        `Socket ${socketId} removed from room ${room} in namespace ${this.name}`,
+        {}
+      );
     }
   }
 
@@ -186,9 +220,12 @@ export class Namespace extends EventEmitter {
   }
 
   // Create a broadcast operator with include/exclude rooms
-  private createBroadcastOperator(includeRooms: string[], excludeRooms: string[]): BroadcastOperator {
+  private createBroadcastOperator(
+    includeRooms: string[],
+    excludeRooms: string[]
+  ): BroadcastOperator {
     const self = this;
-    
+
     return {
       emit(event: string, ...args: any[]): boolean {
         let targetSockets: Set<SocketIOLikeSocket> = new Set();
@@ -222,24 +259,35 @@ export class Namespace extends EventEmitter {
 
       to(room: string | string[]): BroadcastOperator {
         const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
+        return self.createBroadcastOperator(
+          [...includeRooms, ...rooms],
+          excludeRooms
+        );
       },
 
       in(room: string | string[]): BroadcastOperator {
         const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
+        return self.createBroadcastOperator(
+          [...includeRooms, ...rooms],
+          excludeRooms
+        );
       },
 
       except(room: string | string[]): BroadcastOperator {
         const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator(includeRooms, [...excludeRooms, ...rooms]);
+        return self.createBroadcastOperator(includeRooms, [
+          ...excludeRooms,
+          ...rooms,
+        ]);
       },
 
-      compress: (compress: boolean) => self.createBroadcastOperator(includeRooms, excludeRooms),
-      timeout: (timeout: number) => self.createBroadcastOperator(includeRooms, excludeRooms),
+      compress: (compress: boolean) =>
+        self.createBroadcastOperator(includeRooms, excludeRooms),
+      timeout: (timeout: number) =>
+        self.createBroadcastOperator(includeRooms, excludeRooms),
       volatile: self.createBroadcastOperator(includeRooms, excludeRooms),
       local: self.createBroadcastOperator(includeRooms, excludeRooms),
-      
+
       // Enhanced methods for better control
       allSockets: async () => new Set(self.sockets.keys()),
       socketsJoin: (room: string | string[]) => {
@@ -253,7 +301,7 @@ export class Namespace extends EventEmitter {
       disconnectSockets: (close?: boolean) => {
         self.sockets.forEach(socket => socket.disconnect());
       },
-      fetchSockets: async () => Array.from(self.sockets.values())
+      fetchSockets: async () => Array.from(self.sockets.values()),
     };
   }
 
@@ -297,7 +345,7 @@ export class Namespace extends EventEmitter {
       roomCount: this.rooms.size,
       rooms,
       middlewareCount: this.middleware.length,
-      eventMiddlewareCount: this.eventMiddleware.length
+      eventMiddlewareCount: this.eventMiddleware.length,
     };
   }
 }

@@ -1,7 +1,7 @@
 // ws-adapter.ts
 // Adapter que emula la API de Socket.IO usando WebSocket nativo
 
-import { createLogger } from '../logger/index.js';
+import { createClientLogger, type ClientLogger } from './ClientLogger.js';
 
 interface EventCallback {
   (...args: any[]): void;
@@ -65,9 +65,9 @@ export class SocketIOLikeClient {
   private cleanupTimer: NodeJS.Timeout | null = null;
   private isReconnecting: boolean = false;
   private manualDisconnect: boolean = false;
-  private logger = createLogger.client();
+  private logger: ClientLogger;
 
-  constructor(url: string, options: SocketIOLikeOptions = {}) {
+  constructor(url: string, options: SocketIOLikeOptions = {},log=true) {
     this.url = url;
     this.options = {
       reconnection: true,
@@ -84,13 +84,17 @@ export class SocketIOLikeClient {
     this.randomizationFactor = this.options.randomizationFactor || 0.5;
     this.socketId = `ws-client-${Math.random().toString(36).substring(2, 11)}`;
 
-    // Initialize logger with client ID
-    this.logger = createLogger.client(this.socketId);
+    // Initialize browser-compatible logger
+    this.logger = createClientLogger({
+      prefix: `ws-client-${this.socketId}`,
+      level: log ? 0 : 1 // DEBUG if debug option is true, otherwise INFO
+    });
 
     this.logger.info('client_created', 'WebSocket client created', {
       url: this.url,
       socketId: this.socketId,
-      options: this.options
+      reconnection: this.options.reconnection,
+      timeout: this.options.timeout
     });
 
     // Iniciar limpieza periódica de callbacks

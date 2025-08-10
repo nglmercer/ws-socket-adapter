@@ -1,3 +1,5 @@
+import { createLogger } from './logger/index.js';
+
 type Listener = {
   id: symbol; // ID único para cada listener
   callback: (...args: any[]) => void;
@@ -16,11 +18,16 @@ export class Emitter {
   private listeners: Map<string, Listener[]>;
   private anyListeners: AnyListener[];
   private maxListeners: number;
+  private logger = createLogger.emitter();
 
   constructor() {
     this.listeners = new Map();
     this.anyListeners = [];
     this.maxListeners = 100;
+    
+    this.logger.debug('emitter_created', 'Emitter instance created', {
+      maxListeners: this.maxListeners
+    });
   }
 
   // Registra un listener que se ejecutará cada vez que se emita el evento
@@ -33,13 +40,21 @@ export class Emitter {
 
     // Verificar límite de listeners
     if (listeners.length >= this.maxListeners) {
-      console.warn(
-        `MaxListenersExceededWarning: Possible EventEmitter memory leak detected. ${listeners.length + 1} listeners added for event "${event}". Use setMaxListeners() to increase limit.`
-      );
+      this.logger.warn('max_listeners_exceeded', `Possible EventEmitter memory leak detected. ${listeners.length + 1} listeners added for event "${event}"`, {
+        event,
+        currentCount: listeners.length + 1,
+        maxListeners: this.maxListeners
+      });
     }
 
     const id = Symbol('listener');
     listeners.push({ id, callback, once: false });
+
+    this.logger.debug('listener_added', 'Event listener added', {
+      event,
+      listenerCount: listeners.length,
+      once: false
+    });
 
     // Devuelve una función para remover el listener usando el ID único
     return () => {
@@ -135,7 +150,13 @@ export class Emitter {
 
   // Emite un evento con los datos proporcionados
   public emit(event: string, ...args: any[]): boolean {
+    const startTime = Date.now();
     let hasListeners = false;
+
+    this.logger.debug('event_emit_start', 'Starting event emission', {
+      event,
+      argsCount: args.length
+    });
 
     // Ejecutar listeners específicos del evento
     const listeners = this.listeners.get(event);
@@ -146,6 +167,11 @@ export class Emitter {
       const listenersToExecute = [...listeners];
       const listenersToRemove: symbol[] = [];
 
+      this.logger.debug('executing_listeners', `Executing ${listenersToExecute.length} listeners for event`, {
+        event,
+        listenerCount: listenersToExecute.length
+      });
+
       // Ejecutar todos los listeners
       listenersToExecute.forEach(listener => {
         try {
@@ -155,7 +181,10 @@ export class Emitter {
             listenersToRemove.push(listener.id);
           }
         } catch (error) {
-          console.error(`Error in listener for event "${event}":`, error);
+          this.logger.error('listener_execution_error', `Error in listener for event "${event}"`, error, {
+            event,
+            isOnce: listener.once
+          });
           // Si hay error y es "once", también lo marcamos para remoción
           if (listener.once) {
             listenersToRemove.push(listener.id);
@@ -207,6 +236,23 @@ export class Emitter {
           listener => !anyListenersToRemove.includes(listener.id)
         );
       }
+    }
+
+    const emitTime = Date.now() - startTime;
+    
+    this.logger.debug('event_emit_complete', 'Event emission completed', {
+      event,
+      hasListeners,
+      emitTime
+    });
+
+    // Log performance for high-frequency events
+    if (emitTime > 5) {
+      this.logger.performance('slow_emit', emitTime, {
+        event,
+        listenerCount: listeners?.length || 0,
+        anyListenerCount: this.anyListeners.length
+      });
     }
 
     return hasListeners;

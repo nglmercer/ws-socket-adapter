@@ -4,7 +4,7 @@ import { type ISocket } from '../types';
 import { ParsedUrlQuery } from 'querystring';
 import * as url from 'url';
 import { nanoid } from 'nanoid';
-import { logger } from '../logger/index.js';
+import { logger, createLogger } from '../logger/index.js';
 import { Emitter } from '../Emitter.js';
 import { Namespace } from './Namespace.js';
 
@@ -482,18 +482,29 @@ export class SocketIOLikeServer extends EventEmitter {
   private defaultNamespace: Namespace;
   private middleware: Array<(socket: SocketIOLikeSocket, next: (err?: Error) => void) => void> = [];
   private eventMiddleware: Array<(socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void> = [];
+  private logger = createLogger.server();
 
   constructor() {
     super();
     this.emitter = new Emitter();
     
+    this.logger.info('server_created', 'SocketIO-like server created');
+    
     // Create default namespace
     this.defaultNamespace = new Namespace('/');
     this.namespaces.set('/', this.defaultNamespace);
+    
+    this.logger.debug('default_namespace_created', 'Default namespace created', {
+      namespaceName: '/'
+    });
   }
 
   // Inicializar servidor WebSocket con puerto específico
   listen(port: number, callback?: () => void): void {
+    const startTime = Date.now();
+    
+    this.logger.info('server_listen_start', `Starting server on port ${port}`, { port });
+    
     this.wss = new WebSocketServer({ port });
     this.setupWebSocketServer();
 
@@ -501,11 +512,17 @@ export class SocketIOLikeServer extends EventEmitter {
       callback();
     }
 
-    logger.info(`Servidor SocketIO-like escuchando en puerto ${port}`, {});
+    const setupTime = Date.now() - startTime;
+    this.logger.info('server_listening', `Server listening on port ${port}`, { port });
+    this.logger.performance('server_startup', setupTime, { port });
   }
 
   // Inicializar servidor WebSocket usando un servidor HTTP existente
   attach(server: any, callback?: () => void): void {
+    const startTime = Date.now();
+    
+    this.logger.info('server_attach_start', 'Attaching to existing HTTP server');
+    
     this.wss = new WebSocketServer({ server });
     this.setupWebSocketServer();
 
@@ -513,10 +530,9 @@ export class SocketIOLikeServer extends EventEmitter {
       callback();
     }
 
-    logger.info(
-      'Servidor SocketIO-like adjuntado al servidor HTTP existente',
-      {}
-    );
+    const setupTime = Date.now() - startTime;
+    this.logger.info('server_attached', 'Server attached to HTTP server');
+    this.logger.performance('server_attach', setupTime);
   }
 
   // Configurar eventos del servidor WebSocket (método privado compartido)
