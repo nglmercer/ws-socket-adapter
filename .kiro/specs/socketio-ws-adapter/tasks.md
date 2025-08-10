@@ -155,29 +155,29 @@
   - Create tests for callback acknowledgments and error scenarios
   - _Requirements: 5.2_
 
-- [ ] 6.3 Add performance and load testing
+- [x] 6.3 Add performance and load testing
 
   - Create tests for multiple concurrent connections
   - Implement memory usage and leak detection tests
   - Add benchmarks comparing performance with Socket.IO
   - _Requirements: 5.3_
 
-- [ ] 6.4 Implement Socket.IO compatibility tests
+- [x] 6.4 Implement Socket.IO compatibility tests
 
   - Create test suite that verifies API compatibility with Socket.IO
   - Test migration scenarios from Socket.IO to ws-adapter
   - Verify event handling and method signatures match Socket.IO
   - _Requirements: 5.4_
 
-- [ ] 7. Create comprehensive documentation
-- [ ] 7.1 Write installation and setup documentation
+- [x] 7. Create comprehensive documentation
+- [x] 7.1 Write installation and setup documentation
 
   - Create README with installation instructions and basic usage
   - Write getting started guide with simple examples
   - Document configuration options for both client and server
   - _Requirements: 6.1_
 
-- [ ] 7.2 Create API reference documentation
+- [x] 7.2 Create API reference documentation
 
   - Document all client methods, properties, and events
   - Create server API documentation with examples

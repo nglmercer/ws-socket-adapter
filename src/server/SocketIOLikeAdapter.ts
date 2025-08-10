@@ -775,22 +775,26 @@ export class SocketIOLikeServer extends EventEmitter {
     }
   }
 
-  // Métodos de eventos usando emitter personalizado
+  // Métodos de eventos usando emitter personalizado y EventEmitter nativo
   on(event: string, callback: (data: any) => void): this {
     this.emitter.on(event, callback);
+    super.on(event, callback);
     return this;
   }
 
   once(event: string, callback: (data: any) => void): this {
-    this.emitter.once(event, callback);
+    // Use only one emitter for 'once' to avoid double calls
+    super.once(event, callback);
     return this;
   }
 
   off(event: string, callback?: (data: any) => void): this {
     if (callback) {
       this.emitter.off(event, callback);
+      super.off(event, callback);
     } else {
       this.emitter.removeAllListeners(event);
+      super.removeAllListeners(event);
     }
     return this;
   }
@@ -802,7 +806,7 @@ export class SocketIOLikeServer extends EventEmitter {
 
   // Alias for to()
   in(room: string): BroadcastOperator {
-    return this.to(room);
+    return this.createBroadcastOperator([room], []);
   }
 
   // Create broadcast operator with exclusions
@@ -813,63 +817,78 @@ export class SocketIOLikeServer extends EventEmitter {
   // Create a broadcast operator with include/exclude rooms
   private createBroadcastOperator(includeRooms: string[], excludeRooms: string[]): BroadcastOperator {
     const self = this;
-    
-    return {
-      emit(event: string, ...args: any[]): boolean {
-        let targetUsers: Set<ConnectedUser> = new Set();
 
-        if (includeRooms.length > 0) {
-          // Include users from specified rooms
-          includeRooms.forEach(room => {
-            const roomUsers = self.getUsersInRoom(room);
-            roomUsers.forEach(user => targetUsers.add(user));
-          });
-        } else {
-          // Include all users if no specific rooms
-          self.users.forEach(user => targetUsers.add(user));
-        }
+    const emitImpl = (event: string, ...args: any[]): boolean => {
+      const targetUsers: Set<ConnectedUser> = new Set();
 
-        // Exclude users from specified rooms
-        excludeRooms.forEach(room => {
+      if (includeRooms.length > 0) {
+        includeRooms.forEach(room => {
           const roomUsers = self.getUsersInRoom(room);
-          roomUsers.forEach(user => targetUsers.delete(user));
+          roomUsers.forEach(user => targetUsers.add(user));
         });
+      } else {
+        self.users.forEach(user => targetUsers.add(user));
+      }
 
-        // Emit to target users
-        targetUsers.forEach(user => {
-          if (user.socket.isAlive()) {
-            user.socket.emit(event, ...args);
-          }
-        });
+      excludeRooms.forEach(room => {
+        const roomUsers = self.getUsersInRoom(room);
+        roomUsers.forEach(user => targetUsers.delete(user));
+      });
 
-        return true;
-      },
+      targetUsers.forEach(user => {
+        if (user.socket.isAlive()) {
+          user.socket.emit(event, ...args);
+        }
+      });
 
-      to(room: string | string[]): BroadcastOperator {
-        const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
-      },
-
-      in(room: string | string[]): BroadcastOperator {
-        const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
-      },
-
-      except(room: string | string[]): BroadcastOperator {
-        const rooms = Array.isArray(room) ? room : [room];
-        return self.createBroadcastOperator(includeRooms, [...excludeRooms, ...rooms]);
-      },
-
-      compress: (compress: boolean) => self.createBroadcastOperator(includeRooms, excludeRooms),
-      timeout: (timeout: number) => self.createBroadcastOperator(includeRooms, excludeRooms),
-      volatile: self.createBroadcastOperator(includeRooms, excludeRooms),
-      local: self.createBroadcastOperator(includeRooms, excludeRooms)
+      return true;
     };
+
+    const toImpl = (room: string | string[]): BroadcastOperator => {
+      const rooms = Array.isArray(room) ? room : [room];
+      return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
+    };
+
+    const inImpl = (room: string | string[]): BroadcastOperator => {
+      const rooms = Array.isArray(room) ? room : [room];
+      return self.createBroadcastOperator([...includeRooms, ...rooms], excludeRooms);
+    };
+
+    const exceptImpl = (room: string | string[]): BroadcastOperator => {
+      const rooms = Array.isArray(room) ? room : [room];
+      return self.createBroadcastOperator(includeRooms, [...excludeRooms, ...rooms]);
+    };
+
+    const operator: any = {
+      emit: emitImpl,
+      to: toImpl,
+      in: inImpl,
+      except: exceptImpl,
+      // Return the same operator instance for chainability without creating new ones
+      compress: (_compress: boolean) => operator,
+      timeout: (_timeout: number) => operator,
+    };
+
+    // Define volatile and local as getters to avoid eager recursive construction
+    Object.defineProperty(operator, 'volatile', {
+      get() { return operator; },
+      enumerable: true,
+    });
+    Object.defineProperty(operator, 'local', {
+      get() { return operator; },
+      enumerable: true,
+    });
+
+    return operator as BroadcastOperator;
   }
 
-  // Emitir a todos los usuarios conectados
+  // Emitir a todos los usuarios conectados y también emitir en el servidor
   emit(event: string, ...args: any[]): boolean {
-    this.broadcastToAll(event, args);
+    // Emit on server's EventEmitter for server events
+    super.emit(event, ...args);
+    // Also emit to custom emitter
+    this.emitter.emit(event, ...args);
+    // Don't broadcast to all users for server events
     return true;
   }
 
@@ -1001,7 +1020,26 @@ export class SocketIOLikeServer extends EventEmitter {
   // Cerrar servidor
   close(callback?: () => void): void {
     if (this.wss) {
-      this.wss.close(callback);
+      // If wss exists, ensure callback is invoked after cleanup too
+      this.wss.close(() => {
+        // Desconectar todos los usuarios
+        this.users.forEach(user => {
+          user.socket.disconnect();
+        });
+
+        this.users.clear();
+        this.rooms.clear();
+        this.roomMetadata.clear();
+        this.namespaces.clear();
+
+        // Recreate default namespace
+        this.defaultNamespace = new Namespace('/');
+        this.namespaces.set('/', this.defaultNamespace);
+
+        logger.info('Servidor SocketIO-like cerrado', {});
+        if (callback) callback();
+      });
+      return;
     }
 
     // Desconectar todos los usuarios
@@ -1019,6 +1057,7 @@ export class SocketIOLikeServer extends EventEmitter {
     this.namespaces.set('/', this.defaultNamespace);
 
     logger.info('Servidor SocketIO-like cerrado', {});
+    if (callback) callback();
   }
 }
 
