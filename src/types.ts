@@ -667,8 +667,16 @@ interface BroadcastOperator<T extends EventMap> {
 interface ISocket {
   id: string;
   handshake: {
-    query: ParsedUrlQuery;
-  };
+    query: QueryParams;
+     headers?: Record<string, string>;
+     auth?: any;
+     time?: string;
+     issued?: number;
+     url?: string;
+     address?: string;
+     xdomain?: boolean;
+     secure?: boolean;
+   };
   on(event: string, callback: (...args: any[]) => void): this;
   emit(event: string, ...args: any[]): boolean;
   broadcast: {
@@ -804,3 +812,5 @@ export {
   type NamespaceState,
   type RoomState,
 } from './types/enhanced.js';
+
+type QueryParams = Record<string, string | string[] | undefined>;
