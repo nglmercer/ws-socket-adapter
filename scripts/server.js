@@ -1,4 +1,4 @@
-import { SocketIOLikeServer, SocketIOLikeSocket } from '../dist/server.js';
+import { SocketIOLikeServer, SocketIOLikeSocket } from 'ws-socketio-adapter';// '../dist/server.js'; //  ws-socketio-adapter
 
 const server = new SocketIOLikeServer();
 
@@ -7,7 +7,7 @@ server.on('connection', (socket) => {
   
   socket.on('message', (data) => {
     console.log('Received:', data);
-    socket.emit('response', 'Hello Client!');
+    socket.emit('response', 'Hello Client!'); 
   });
 });
 

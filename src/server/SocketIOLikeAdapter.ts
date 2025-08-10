@@ -469,6 +469,10 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
   get nsp(): Namespace {
     return this.namespace;
   }
+  set nsp(value: Namespace) {
+    // Permitir que el Namespace establezca su referencia en este socket (compatibilidad con Socket.IO)
+    this.namespace = value;
+  }
 }
 
 // Servidor principal que maneja múltiples conexiones
