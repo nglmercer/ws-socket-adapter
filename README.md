@@ -23,7 +23,7 @@ npm install ws-socketio-adapter
 ### Client Usage
 
 ```typescript
-import { SocketIOLikeClient } from 'ws-socketio-adapter';
+import { SocketIOLikeClient,defaultLogger } from 'ws-socketio-adapter';
 
 const socket = new SocketIOLikeClient('ws://localhost:3000');
 
@@ -37,18 +37,31 @@ socket.emit('message', 'Hello Server!');
 ### Server Usage
 
 ```typescript
-import { SocketIOLikeAdapter } from 'ws-socketio-adapter';
+import { SocketIOLikeServer, SocketIOLikeSocket, defaultLogger } from '../dist/index.js';
 
-const server = new SocketIOLikeAdapter({ port: 3000 });
-
+const server = new SocketIOLikeServer();
+// internal logger, default level is 'info'
+// you can update the logger config
+defaultLogger.updateConfig({
+  level: 'debug',
+});
 server.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
-  
+  defaultLogger.log('Client connected:', socket.id);
+
   socket.on('message', (data) => {
     console.log('Received:', data);
-    socket.emit('response', 'Hello Client!');
+    socket.emit('response', 'Hello Client!'); 
+  });
+
+  socket.on('disconnect', () => {
+   console.log('disconnected', socket.id);
   });
 });
+
+server.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
+
 ```
 
 ## Development
