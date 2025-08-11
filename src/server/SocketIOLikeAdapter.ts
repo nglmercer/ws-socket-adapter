@@ -4,7 +4,8 @@ import { type ISocket } from '../types';
 import { ParsedUrlQuery } from 'querystring';
 import * as url from 'url';
 import { nanoid } from 'nanoid';
-import { logger, createLogger } from '../logger/index.js';
+import { logger,defaultLogger } from '../logger/index.js';
+
 import { Emitter } from '../Emitter.js';
 import { Namespace } from './Namespace.js';
 
@@ -525,7 +526,7 @@ export class SocketIOLikeServer extends EventEmitter {
   private eventMiddleware: Array<(socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void> = [];
   private useMiddleware: boolean = false;
   public useEventMiddleware: boolean = false;
-  public logger = createLogger.server();
+  public logger = defaultLogger;
 
   constructor() {
     super();

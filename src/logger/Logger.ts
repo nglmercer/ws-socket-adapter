@@ -476,16 +476,56 @@ export class Logger extends EventEmitter {
     this.removeAllListeners();
   }
 }
+export class ExtendedLogger extends Logger {
+  constructor(config: Partial<LoggerConfig> = {}) {
+    super(config);
+  }
+
+  /**
+   * Performance logging for operations
+   */
+  performance(event: string, duration: number, data?: any): void {
+    this.debug(`${event} completed in ${duration}ms`, { duration, performanceLog: true, ...data });
+  }
+
+  /**
+   * Connection lifecycle logging
+   */
+  connection(event: string, socketId?: string, data?: any): void {
+    this.info(`Connection ${event}`, { socketId, connectionEvent: true, ...data });
+  }
+
+  /**
+   * Room operation logging
+   */
+  room(event: string, roomName: string, socketId?: string, data?: any): void {
+    this.debug(`Room ${event}`, { roomName, socketId, roomEvent: true, ...data });
+  }
+
+  /**
+   * Namespace operation logging
+   */
+  namespace(event: string, namespaceName: string, data?: any): void {
+    this.debug(`Namespace ${event}`, { namespaceName, namespaceEvent: true, ...data });
+  }
+
+  /**
+   * Update logger configuration
+   */
+  updateConfig(newConfig: Partial<LoggerConfig>): void {
+    super.updateConfig(newConfig);
+  }
+}
 
 // Instancia global del logger
-let globalLogger: Logger | null = null;
+let globalLogger: ExtendedLogger | null = null;
 
 /**
  * Obtener o crear la instancia global del logger
  */
-export function getLogger(config?: Partial<LoggerConfig>): Logger {
+export function getLogger(config?: Partial<LoggerConfig>): ExtendedLogger {
   if (!globalLogger) {
-    globalLogger = new Logger(config);
+    globalLogger = new ExtendedLogger(config);
   } else if (config) {
     globalLogger.updateConfig(config);
   }

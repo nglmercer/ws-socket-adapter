@@ -7,6 +7,7 @@ export {
   type LogEntry,
   getLogger,
   pushLogs,
+  ExtendedLogger
 } from './Logger.js';
 
 export {
@@ -17,15 +18,6 @@ export {
   validateConfig,
   DEFAULT_CONFIG,
 } from './config.js';
-
-export {
-  LoggerFactory,
-  ComponentLogger,
-  ComponentType,
-  type LoggerFactoryConfig,
-  getLoggerFactory,
-  createLogger,
-} from './LoggerFactory.js';
 
 // Re-exportar tipos para facilitar el uso
 export type {

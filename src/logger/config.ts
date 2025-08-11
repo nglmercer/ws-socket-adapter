@@ -203,7 +203,6 @@ export const SocketIOAdapterConfigs = {
     includeStackTrace: true,
   } as Partial<LoggerConfig>,
 };
-
 /**
  * Configuración por defecto del sistema
  */

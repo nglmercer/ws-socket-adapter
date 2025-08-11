@@ -3,8 +3,7 @@ export { SocketIOLikeServer, SocketIOLikeSocket, wsio, Namespace } from './serve
 export { Emitter } from './Emitter.js';
 
 // Server-only logging utilities
-export { logger, createLogger, defaultLogger, log, LoggerFactory, ComponentLogger, ComponentType } from './logger/index.js';
-export type { LoggerFactoryConfig } from './logger/LoggerFactory.js';
+export { logger, defaultLogger, log, ExtendedLogger } from './logger/index.js';
 
 // Server-only types
 export type {

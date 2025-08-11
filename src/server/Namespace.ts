@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Emitter } from '../Emitter.js';
 import { SocketIOLikeSocket } from './SocketIOLikeAdapter.js';
-import { logger, createLogger } from '../logger/index.js';
+import { logger,ExtendedLogger,defaultLogger } from '../logger/index.js';
 
 // Enhanced interface for broadcast operator with better typing and additional methods
 interface BroadcastOperator {
@@ -30,7 +30,8 @@ export class Namespace extends EventEmitter {
   private middleware: Array<
     (socket: SocketIOLikeSocket, next: (err?: Error) => void) => void
   > = [];
-  private logger: ReturnType<typeof createLogger.namespace>;
+  private logger: ExtendedLogger;
+
   private eventMiddleware: Array<
     (
       socket: SocketIOLikeSocket,
@@ -44,8 +45,7 @@ export class Namespace extends EventEmitter {
     super();
     this.name = name;
     this.emitter = new Emitter();
-    this.logger = createLogger.namespace(name);
-
+    this.logger = defaultLogger;
     this.logger.info('namespace_created', `Namespace created: ${name}`, {
       namespaceName: name,
     });

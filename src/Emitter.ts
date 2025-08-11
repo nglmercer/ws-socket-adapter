@@ -1,4 +1,4 @@
-import { createLogger } from './logger/index.js';
+import { defaultLogger,createCustomConfig } from './logger/index.js';
 
 type Listener = {
   id: symbol; // ID único para cada listener
@@ -18,7 +18,7 @@ export class Emitter {
   private listeners: Map<string, Listener[]>;
   private anyListeners: AnyListener[];
   private maxListeners: number;
-  private logger = createLogger.emitter();
+  private logger = defaultLogger;
 
   constructor() {
     this.listeners = new Map();
