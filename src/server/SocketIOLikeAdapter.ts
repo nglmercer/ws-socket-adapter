@@ -115,10 +115,13 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
   constructor(ws: WebSocket, request: any, server: SocketIOLikeServer, namespace: Namespace) {
     super();
     this.ws = ws;
-    this.id = nanoid();
     this.server = server;
     this.namespace = namespace;
     this.emitter = new Emitter();
+    
+    // Generar ID único usando el método del servidor
+    this.id = server.generateUniqueId();
+    logger.debug(`Socket creado con ID único: ${this.id}`, {});
 
     // Extraer query params
     const parsedUrl = url.parse(request.url || '', true);
@@ -632,8 +635,32 @@ export class SocketIOLikeServer extends EventEmitter {
     return namespace;
   }
 
+  // Verificar si un ID está disponible
+  private isIdAvailable(id: string): boolean {
+    return !this.users.has(id);
+  }
+
+  // Generar ID único garantizado
+  public generateUniqueId(): string {
+    let id: string;
+    do {
+      id = nanoid();
+    } while (!this.isIdAvailable(id));
+    return id;
+  }
+
   // Registrar usuario
   registerUser(socket: SocketIOLikeSocket): void {
+    // Verificar si ya existe un usuario con este ID
+    if (this.users.has(socket.id)) {
+      logger.warn(
+        `Intento de registrar usuario con ID duplicado: ${socket.id}. Desregistrando usuario anterior.`,
+        {}
+      );
+      // Desregistrar el usuario anterior
+      this.unregisterUser(socket.id);
+    }
+
     const user: ConnectedUser = {
       id: socket.id,
       socket,
@@ -667,6 +694,13 @@ export class SocketIOLikeServer extends EventEmitter {
       `Usuario registrado: ${socket.id}. Total usuarios: ${this.users.size}`,
       {}
     );
+    
+    // Emitir evento de confirmación de registro exitoso
+    socket.emit('user-registered', {
+      id: socket.id,
+      timestamp: Date.now(),
+      totalUsers: this.users.size
+    });
   }
 
   // Desregistrar usuario

@@ -109,6 +109,16 @@ export class Namespace extends EventEmitter {
   // Add a socket to this namespace
   async addSocket(socket: SocketIOLikeSocket): Promise<void> {
     try {
+      // Verificar si ya existe un socket con este ID en el namespace
+      if (this.sockets.has(socket.id)) {
+        logger.warn(
+          `Socket con ID duplicado ${socket.id} en namespace ${this.name}. Removiendo socket anterior.`,
+          {}
+        );
+        // Remover el socket anterior
+        this.removeSocket(socket.id);
+      }
+
       // Execute middleware chain
       await this.executeMiddleware(socket);
 
