@@ -42,7 +42,7 @@ export class SocketIOLikeClient {
   private options: SocketIOLikeOptions;
   private eventCallbacks: EventCallbacks = {};
   private anyCallbacks: EventCallback[] = [];
-  private isConnected: boolean = false;
+  public isConnected: boolean = false;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
   private reconnectDelay: number = 1000;
@@ -65,7 +65,7 @@ export class SocketIOLikeClient {
   private cleanupTimer: NodeJS.Timeout | null = null;
   private isReconnecting: boolean = false;
   private manualDisconnect: boolean = false;
-  private logger: ClientLogger;
+  public logger: ClientLogger;
 
   constructor(url: string, options: SocketIOLikeOptions = {},log=true) {
     this.url = url;

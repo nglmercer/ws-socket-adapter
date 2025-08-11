@@ -99,13 +99,13 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     };
   };
   private ws: WebSocket;
-  private isConnected: boolean = true;
   private lastActivity: number = Date.now();
   private connectionStartTime: number = Date.now();
   private emitter: Emitter;
   private rooms: Set<string> = new Set();
   private server: SocketIOLikeServer;
   private namespace: Namespace;
+  public isConnected: boolean = false;
 
   broadcast: {
     emit: (event: string, ...args: any[]) => void;
@@ -123,20 +123,18 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.id = server.generateUniqueId();
     logger.debug(`Socket creado con ID único: ${this.id}`, {});
 
-    // Extraer query params
+    //  query params
     const parsedUrl = url.parse(request.url || '', true);
     this.handshake = {
       query: parsedUrl.query,
     };
 
-    // Simular conn.transport para compatibilidad con Socket.IO
     this.conn = {
       transport: {
         name: 'websocket',
       },
     };
 
-    // Configurar broadcast
     this.broadcast = {
       emit: (event: string, ...args: any[]) => {
         this.server.broadcastToAll(event, args, this.id);
@@ -148,9 +146,10 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
       }),
     };
 
+    this.isConnected = true;
+
     this.setupWebSocketListeners();
 
-    // Registrar usuario en el servidor
     this.server.registerUser(this);
   }
 
@@ -199,7 +198,6 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
   }
 
   private setupWebSocketListeners(): void {
-    // Manejar mensajes entrantes
     this.ws.on('message', (message: RawData) => {
       try {
         const data = JSON.parse(message.toString());
@@ -527,7 +525,7 @@ export class SocketIOLikeServer extends EventEmitter {
   private eventMiddleware: Array<(socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void> = [];
   private useMiddleware: boolean = false;
   public useEventMiddleware: boolean = false;
-  private logger = createLogger.server();
+  public logger = createLogger.server();
 
   constructor() {
     super();
@@ -578,7 +576,6 @@ export class SocketIOLikeServer extends EventEmitter {
     this.logger.performance('server_startup', setupTime, { port });
   }
 
-  // Inicializar servidor WebSocket usando un servidor HTTP existente
   attach(server: any, callback?: () => void): void {
     const startTime = Date.now();
     
@@ -596,7 +593,6 @@ export class SocketIOLikeServer extends EventEmitter {
     this.logger.performance('server_attach', setupTime);
   }
 
-  // Configurar eventos del servidor WebSocket (método privado compartido)
   private setupWebSocketServer(): void {
     if (!this.wss) return;
 
