@@ -154,12 +154,24 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.server.registerUser(this);
   }
 
-  // Execute event middleware chain
+  // Execute event middleware chain (with optional middleware support)
   private async executeEventMiddleware(event: string, data: any[]): Promise<void> {
+    // Check if event middleware is enabled on server
+    const serverUseEventMiddleware = (this.server as any).useEventMiddleware;
+    if (!serverUseEventMiddleware) {
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       const serverEventMiddleware = (this.server as any).eventMiddleware || [];
       const namespaceEventMiddleware = (this.namespace as any).eventMiddleware || [];
       const allMiddleware = [...serverEventMiddleware, ...namespaceEventMiddleware];
+      
+      // Skip if no middleware to execute
+      if (allMiddleware.length === 0) {
+        resolve();
+        return;
+      }
       
       let index = 0;
 
@@ -303,7 +315,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     return this;
   }
 
-  // Método emit para enviar datos al cliente
+  // Método emit para enviar datos al cliente (with graceful degradation)
   emit(event: string, ...args: any[]): boolean {
     if (!this.isConnected || this.ws.readyState !== WebSocket.OPEN) {
       logger.warn(`Intento de envío a WebSocket ${this.id} desconectado`, {
@@ -313,15 +325,39 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     }
 
     try {
-      const message = JSON.stringify({
-        event,
-        payload: args,
+      // Intentar envío normal
+      return this.sendMessage(event, args);
+    } catch (error: any) {
+      // Fallback a método simple para mejor compatibilidad
+      logger.warn(`Fallback to simple emit for ${this.id}`, { event, error: error.message });
+      return this.sendSimpleMessage(event, args);
+    }
+  }
+
+  // Método de envío normal
+  private sendMessage(event: string, args: any[]): boolean {
+    const message = JSON.stringify({
+      event,
+      payload: args,
+    });
+    this.ws.send(message);
+    this.lastActivity = Date.now();
+    return true;
+  }
+
+  // Método de envío simple como fallback
+  private sendSimpleMessage(event: string, args: any[]): boolean {
+    try {
+      // Formato más simple para mejor compatibilidad
+      const simpleMessage = JSON.stringify({
+        type: event,
+        data: args.length === 1 ? args[0] : args
       });
-      this.ws.send(message);
+      this.ws.send(simpleMessage);
       this.lastActivity = Date.now();
       return true;
     } catch (error) {
-      logger.error(`Error al enviar mensaje por WS ${this.id}:`, error);
+      logger.error(`Error en fallback emit para WS ${this.id}:`, error);
       this.isConnected = false;
       return false;
     }
@@ -489,6 +525,8 @@ export class SocketIOLikeServer extends EventEmitter {
   private defaultNamespace: Namespace;
   private middleware: Array<(socket: SocketIOLikeSocket, next: (err?: Error) => void) => void> = [];
   private eventMiddleware: Array<(socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void> = [];
+  private useMiddleware: boolean = false;
+  public useEventMiddleware: boolean = false;
   private logger = createLogger.server();
 
   constructor() {
@@ -504,6 +542,22 @@ export class SocketIOLikeServer extends EventEmitter {
     this.logger.debug('default_namespace_created', 'Default namespace created', {
       namespaceName: '/'
     });
+  }
+
+  // Enable maximum compatibility mode (disables complex features)
+  enableMaxCompatibility(): this {
+    this.useMiddleware = false;
+    this.useEventMiddleware = false;
+    this.logger.info('Maximum compatibility mode enabled - middleware disabled', {});
+    return this;
+  }
+
+  // Enable full features mode (enables all features)
+  enableFullFeatures(): this {
+    this.useMiddleware = true;
+    this.useEventMiddleware = true;
+    this.logger.info('Full features mode enabled - all middleware enabled', {});
+    return this;
   }
 
   // Inicializar servidor WebSocket con puerto específico
@@ -581,6 +635,31 @@ export class SocketIOLikeServer extends EventEmitter {
     });
   }
 
+  // Enable/disable middleware for better compatibility
+  enableMiddleware(): this {
+    this.useMiddleware = true;
+    logger.info('Connection middleware enabled', {});
+    return this;
+  }
+
+  enableEventMiddleware(): this {
+    this.useEventMiddleware = true;
+    logger.info('Event middleware enabled', {});
+    return this;
+  }
+
+  disableMiddleware(): this {
+    this.useMiddleware = false;
+    logger.info('Connection middleware disabled', {});
+    return this;
+  }
+
+  disableEventMiddleware(): this {
+    this.useEventMiddleware = false;
+    logger.info('Event middleware disabled', {});
+    return this;
+  }
+
   // Add middleware to server (applies to all namespaces)
   use(middleware: (socket: SocketIOLikeSocket, next: (err?: Error) => void) => void): this;
   use(middleware: (socket: SocketIOLikeSocket, event: string, data: any[], next: (err?: Error) => void) => void): this;
@@ -588,16 +667,23 @@ export class SocketIOLikeServer extends EventEmitter {
     // Check if it's event middleware (4 parameters) or connection middleware (2 parameters)
     if (middleware.length === 4) {
       this.eventMiddleware.push(middleware);
-      logger.info('Server event middleware added', {});
+      this.useEventMiddleware = true; // Auto-enable when middleware is added
+      logger.info('Server event middleware added and enabled', {});
     } else {
       this.middleware.push(middleware);
-      logger.info('Server connection middleware added', {});
+      this.useMiddleware = true; // Auto-enable when middleware is added
+      logger.info('Server connection middleware added and enabled', {});
     }
     return this;
   }
 
-  // Execute server middleware chain for a socket
+  // Execute server middleware chain for a socket (with optional middleware support)
   private async executeServerMiddleware(socket: SocketIOLikeSocket): Promise<void> {
+    // Skip middleware execution if disabled for better compatibility
+    if (!this.useMiddleware || this.middleware.length === 0) {
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       let index = 0;
 
@@ -635,18 +721,34 @@ export class SocketIOLikeServer extends EventEmitter {
     return namespace;
   }
 
-  // Verificar si un ID está disponible
+  // Verificar si un ID está disponible (thread-safe mejorado)
   private isIdAvailable(id: string): boolean {
     return !this.users.has(id);
   }
 
-  // Generar ID único garantizado
+  // Generar ID único garantizado con fallback
   public generateUniqueId(): string {
     let id: string;
+    let attempts = 0;
+    
     do {
       id = nanoid();
+      attempts++;
+      
+      // Evitar loops infinitos con fallback timestamp
+      if (attempts > 10) {
+        id = `${nanoid()}-${Date.now()}`;
+        logger.warn('ID generation fallback used', { attempts, finalId: id });
+        break;
+      }
     } while (!this.isIdAvailable(id));
+    
     return id;
+  }
+
+  // Método simple para verificar existencia de usuario
+  public hasUser(id: string): boolean {
+    return this.users.has(id);
   }
 
   // Registrar usuario

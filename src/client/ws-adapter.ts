@@ -443,6 +443,29 @@ export class SocketIOLikeClient {
 
     // Si está conectado y no es un evento interno, enviar al servidor
     if (this.isConnected && this.ws && !this.isInternalEvent(event)) {
+      // Verificar que el WebSocket esté en estado OPEN antes de enviar
+      if (this.ws.readyState !== WebSocket.OPEN) {
+        console.warn(`[WS-ADAPTER] Cannot send message '${event}': WebSocket is not in OPEN state (readyState: ${this.ws.readyState})`);
+        
+        // Si el WebSocket está cerrado, actualizar el estado interno
+        if (this.ws.readyState === WebSocket.CLOSED || this.ws.readyState === WebSocket.CLOSING) {
+          this.isConnected = false;
+          
+          // Emitir evento de desconexión si no se ha emitido ya
+          if (this.ws.readyState === WebSocket.CLOSED) {
+            this.emit('disconnect', 'transport close', {
+              wasClean: false,
+              code: 1006,
+              reason: 'WebSocket closed unexpectedly',
+              timestamp: Date.now(),
+              attempt: this.reconnectAttempts
+            });
+          }
+        }
+        
+        return false;
+      }
+      
       try {
         const message: any = {
           event,
@@ -499,6 +522,22 @@ export class SocketIOLikeClient {
         return true;
       } catch (error) {
         console.error('Error al enviar mensaje:', error);
+        
+        // Si el error es DOMException, probablemente el WebSocket está cerrado
+        if (error instanceof DOMException) {
+          console.warn('[WS-ADAPTER] DOMException caught - WebSocket may be closed, updating connection state');
+          this.isConnected = false;
+          
+          // Emitir evento de error de conexión
+          const connectionError = new Error('WebSocket connection lost during send operation');
+          (connectionError as any).code = 'WEBSOCKET_SEND_ERROR';
+          (connectionError as any).type = 'TransportError';
+          (connectionError as any).originalError = error;
+          (connectionError as any).readyState = this.ws?.readyState;
+          
+          this.emit('error', connectionError);
+        }
+        
         return false;
       }
     }
@@ -507,7 +546,7 @@ export class SocketIOLikeClient {
   }
 
   private isInternalEvent(event: string): boolean {
-    return ['connect', 'disconnect', 'error', 'connect_error', 'reconnect', 'reconnect_attempt', 'reconnect_error', 'reconnect_failed'].includes(event);
+    return ['connect', 'disconnect', 'error', 'connect_error', 'reconnect', 'reconnect_attempt', 'reconnect_error', 'reconnect_failed', 'user-registered', 'userid-already-taken'].includes(event);
   }
 
   private clearTimers(): void {
