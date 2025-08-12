@@ -1,4 +1,4 @@
-import { defaultLogger,createCustomConfig } from './logger/index.js';
+import { defaultLogger } from './logger/index.js';
 
 type Listener = {
   id: symbol; // ID único para cada listener
@@ -18,14 +18,14 @@ export class Emitter {
   private listeners: Map<string, Listener[]>;
   private anyListeners: AnyListener[];
   private maxListeners: number;
-  private logger = defaultLogger;
 
   constructor() {
     this.listeners = new Map();
     this.anyListeners = [];
     this.maxListeners = 100;
     
-    this.logger.debug('emitter_created', 'Emitter instance created', {
+    defaultLogger.debug('emitter_created', {
+      message:'Emitter instance created',
       maxListeners: this.maxListeners
     });
   }
@@ -40,7 +40,8 @@ export class Emitter {
 
     // Verificar límite de listeners
     if (listeners.length >= this.maxListeners) {
-      this.logger.warn('max_listeners_exceeded', `Possible EventEmitter memory leak detected. ${listeners.length + 1} listeners added for event "${event}"`, {
+      defaultLogger.warn('max_listeners_exceeded',{
+        message:`Possible EventEmitter memory leak detected. ${listeners.length + 1} listeners added for event "${event}"`,
         event,
         currentCount: listeners.length + 1,
         maxListeners: this.maxListeners
@@ -50,7 +51,8 @@ export class Emitter {
     const id = Symbol('listener');
     listeners.push({ id, callback, once: false });
 
-    this.logger.debug('listener_added', 'Event listener added', {
+    defaultLogger.debug('listener_added',{
+      message:'Event listener added',
       event,
       listenerCount: listeners.length,
       once: false
@@ -153,7 +155,8 @@ export class Emitter {
     const startTime = Date.now();
     let hasListeners = false;
 
-    this.logger.debug('event_emit_start', 'Starting event emission', {
+    defaultLogger.debug('event_emit_start',{
+      message:'Starting event emission',
       event,
       argsCount: args.length
     });
@@ -167,7 +170,8 @@ export class Emitter {
       const listenersToExecute = [...listeners];
       const listenersToRemove: symbol[] = [];
 
-      this.logger.debug('executing_listeners', `Executing ${listenersToExecute.length} listeners for event`, {
+      defaultLogger.debug('executing_listeners',{
+        message:`Executing ${listenersToExecute.length} listeners for event "${event}"`,
         event,
         listenerCount: listenersToExecute.length
       });
@@ -181,7 +185,7 @@ export class Emitter {
             listenersToRemove.push(listener.id);
           }
         } catch (error) {
-          this.logger.error('listener_execution_error', `Error in listener for event "${event}"`, error, {
+          defaultLogger.error('listener_execution_error', `Error in listener for event "${event}"`, error, {
             event,
             isOnce: listener.once
           });
@@ -240,7 +244,8 @@ export class Emitter {
 
     const emitTime = Date.now() - startTime;
     
-    this.logger.debug('event_emit_complete', 'Event emission completed', {
+    defaultLogger.debug('event_emit_complete',{
+      message:'Event emission completed',
       event,
       hasListeners,
       emitTime
@@ -248,7 +253,7 @@ export class Emitter {
 
     // Log performance for high-frequency events
     if (emitTime > 5) {
-      this.logger.performance('slow_emit', emitTime, {
+      defaultLogger.performance('slow_emit', emitTime, {
         event,
         listenerCount: listeners?.length || 0,
         anyListenerCount: this.anyListeners.length

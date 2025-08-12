@@ -4,7 +4,7 @@ import { type ISocket } from '../types';
 import { ParsedUrlQuery } from 'querystring';
 import * as url from 'url';
 import { nanoid } from 'nanoid';
-import { logger,defaultLogger } from '../logger/index.js';
+import { defaultLogger } from '../logger/index.js';
 
 import { Emitter } from '../Emitter.js';
 import { Namespace } from './Namespace.js';
@@ -122,7 +122,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     
     // Generar ID único usando el método del servidor
     this.id = server.generateUniqueId();
-    logger.debug(`Socket creado con ID único: ${this.id}`, {});
+    defaultLogger.debug(`Socket creado con ID único: ${this.id}`, {});
 
     //  query params
     const parsedUrl = url.parse(request.url || '', true);
@@ -240,14 +240,14 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
               super.emit(data.event, ...args);
             })
             .catch(error => {
-              logger.error(`Event middleware error for ${data.event}:`, error);
+              defaultLogger.error(`Event middleware error for ${data.event}:`, error);
               // Emit error event
               this.emitter.emit('error', error);
               super.emit('error', error);
             });
         }
       } catch (error) {
-        logger.error('Error al parsear mensaje de WS:', error);
+        defaultLogger.error('Error al parsear mensaje de WS:', error);
       }
     });
 
@@ -255,7 +255,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.ws.on('close', (code: number, reason: Buffer) => {
       this.isConnected = false;
       const reasonString = reason.toString();
-      logger.info(`WebSocket ${this.id} cerrado`, {
+      defaultLogger.info(`WebSocket ${this.id} cerrado`, {
         code,
         reason: reasonString,
         duration: Date.now() - this.connectionStartTime,
@@ -271,7 +271,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
 
     this.ws.on('error', (err: Error) => {
       this.isConnected = false;
-      logger.error(`Error en WebSocket ${this.id}:`, err);
+      defaultLogger.error(`Error en WebSocket ${this.id}:`, err);
       this.server.unregisterUser(this.id);
       this.emitter.emit('disconnect');
       super.emit('disconnect');
@@ -317,7 +317,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
   // Método emit para enviar datos al cliente (with graceful degradation)
   emit(event: string, ...args: any[]): boolean {
     if (!this.isConnected || this.ws.readyState !== WebSocket.OPEN) {
-      logger.warn(`Intento de envío a WebSocket ${this.id} desconectado`, {
+      defaultLogger.warn(`Intento de envío a WebSocket ${this.id} desconectado`, {
         data: event,
       });
       return false;
@@ -328,7 +328,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
       return this.sendMessage(event, args);
     } catch (error: any) {
       // Fallback a método simple para mejor compatibilidad
-      logger.warn(`Fallback to simple emit for ${this.id}`, { event, error: error.message });
+      defaultLogger.warn(`Fallback to simple emit for ${this.id}`, { event, error: error.message });
       return this.sendSimpleMessage(event, args);
     }
   }
@@ -356,7 +356,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
       this.lastActivity = Date.now();
       return true;
     } catch (error) {
-      logger.error(`Error en fallback emit para WS ${this.id}:`, error);
+      defaultLogger.error(`Error en fallback emit para WS ${this.id}:`, error);
       this.isConnected = false;
       return false;
     }
@@ -367,7 +367,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.rooms.add(room);
     this.server.addToRoom(room, this.id);
     this.namespace.addToRoom(room, this.id);
-    logger.info(`Socket ${this.id} se unió a la sala ${room}`, {});
+    defaultLogger.info(`Socket ${this.id} se unió a la sala ${room}`, {});
     return this;
   }
 
@@ -376,7 +376,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.rooms.delete(room);
     this.server.removeFromRoom(room, this.id);
     this.namespace.removeFromRoom(room, this.id);
-    logger.info(`Socket ${this.id} salió de la sala ${room}`, {});
+    defaultLogger.info(`Socket ${this.id} salió de la sala ${room}`, {});
     return this;
   }
 
@@ -461,7 +461,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
       try {
         this.ws.close(1000, 'Normal closure');
       } catch (error) {
-        logger.error(`Error cerrando WebSocket ${this.id}:`, error);
+        defaultLogger.error(`Error cerrando WebSocket ${this.id}:`, error);
       }
     }
     return this;
@@ -474,7 +474,7 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
         this.ws.ping(data);
         this.lastActivity = Date.now();
       } catch (error) {
-        logger.error(`Error enviando ping a WebSocket ${this.id}:`, error);
+        defaultLogger.error(`Error enviando ping a WebSocket ${this.id}:`, error);
       }
     }
   }
@@ -532,13 +532,14 @@ export class SocketIOLikeServer extends EventEmitter {
     super();
     this.emitter = new Emitter();
     
-    this.logger.info('server_created', 'SocketIO-like server created');
+    this.logger.info('server_created', {message:'SocketIO-like server created'}, {});
+
     
     // Create default namespace
     this.defaultNamespace = new Namespace('/');
     this.namespaces.set('/', this.defaultNamespace);
     
-    this.logger.debug('default_namespace_created', 'Default namespace created', {
+    this.logger.debug('default_namespace_created', {message:'Default namespace created'}, {
       namespaceName: '/'
     });
   }
@@ -563,7 +564,7 @@ export class SocketIOLikeServer extends EventEmitter {
   listen(port: number, callback?: () => void): void {
     const startTime = Date.now();
     
-    this.logger.info('server_listen_start', `Starting server on port ${port}`, { port });
+    this.logger.info('server_listen_start', {message:`Starting server on port ${port}`}, { port });
     
     this.wss = new WebSocketServer({ port });
     this.setupWebSocketServer();
@@ -573,14 +574,14 @@ export class SocketIOLikeServer extends EventEmitter {
     }
 
     const setupTime = Date.now() - startTime;
-    this.logger.info('server_listening', `Server listening on port ${port}`, { port });
+    this.logger.info('server_listening', {message:`Server listening on port ${port}`}, { port });
     this.logger.performance('server_startup', setupTime, { port });
   }
 
   attach(server: any, callback?: () => void): void {
     const startTime = Date.now();
     
-    this.logger.info('server_attach_start', 'Attaching to existing HTTP server');
+    this.logger.info('server_attach_start', {message:'Attaching to existing HTTP server'}, {});
     
     this.wss = new WebSocketServer({ server });
     this.setupWebSocketServer();
@@ -590,7 +591,8 @@ export class SocketIOLikeServer extends EventEmitter {
     }
 
     const setupTime = Date.now() - startTime;
-    this.logger.info('server_attached', 'Server attached to HTTP server');
+    this.logger.info('server_attached', {message:'Server attached to HTTP server'}, {});
+
     this.logger.performance('server_attach', setupTime);
   }
 
@@ -610,7 +612,7 @@ export class SocketIOLikeServer extends EventEmitter {
       }
 
       const socket = new SocketIOLikeSocket(ws, request, this, namespace);
-      logger.info(`Nueva conexión WebSocket: ${socket.id} en namespace ${namespaceName}`, {});
+      defaultLogger.info(`Nueva conexión WebSocket: ${socket.id} en namespace ${namespaceName}`, {});
 
       // Execute server middleware first, then namespace middleware
       this.executeServerMiddleware(socket)
@@ -623,7 +625,7 @@ export class SocketIOLikeServer extends EventEmitter {
           super.emit('connection', socket);
         })
         .catch(error => {
-          logger.error(`Error in middleware chain for socket ${socket.id}:`, error);
+          defaultLogger.error(`Error in middleware chain for socket ${socket.id}:`, error);
           // Emit connection error on server
           this.emitter.emit('connect_error', error, socket);
           super.emit('connect_error', error, socket);
@@ -635,25 +637,25 @@ export class SocketIOLikeServer extends EventEmitter {
   // Enable/disable middleware for better compatibility
   enableMiddleware(): this {
     this.useMiddleware = true;
-    logger.info('Connection middleware enabled', {});
+    defaultLogger.info('Connection middleware enabled', {});
     return this;
   }
 
   enableEventMiddleware(): this {
     this.useEventMiddleware = true;
-    logger.info('Event middleware enabled', {});
+    defaultLogger.info('Event middleware enabled', {});
     return this;
   }
 
   disableMiddleware(): this {
     this.useMiddleware = false;
-    logger.info('Connection middleware disabled', {});
+    defaultLogger.info('Connection middleware disabled', {});
     return this;
   }
 
   disableEventMiddleware(): this {
     this.useEventMiddleware = false;
-    logger.info('Event middleware disabled', {});
+    defaultLogger.info('Event middleware disabled', {});
     return this;
   }
 
@@ -665,11 +667,11 @@ export class SocketIOLikeServer extends EventEmitter {
     if (middleware.length === 4) {
       this.eventMiddleware.push(middleware);
       this.useEventMiddleware = true; // Auto-enable when middleware is added
-      logger.info('Server event middleware added and enabled', {});
+      defaultLogger.info('Server event middleware added and enabled', {});
     } else {
       this.middleware.push(middleware);
       this.useMiddleware = true; // Auto-enable when middleware is added
-      logger.info('Server connection middleware added and enabled', {});
+      defaultLogger.info('Server connection middleware added and enabled', {});
     }
     return this;
   }
@@ -713,7 +715,7 @@ export class SocketIOLikeServer extends EventEmitter {
     if (!namespace) {
       namespace = new Namespace(namespaceName);
       this.namespaces.set(namespaceName, namespace);
-      logger.info(`Namespace created: ${namespaceName}`, {});
+      defaultLogger.info(`Namespace created: ${namespaceName}`, {});
     }
     return namespace;
   }
@@ -735,7 +737,7 @@ export class SocketIOLikeServer extends EventEmitter {
       // Evitar loops infinitos con fallback timestamp
       if (attempts > 10) {
         id = `${nanoid()}-${Date.now()}`;
-        logger.warn('ID generation fallback used', { attempts, finalId: id });
+        defaultLogger.warn('ID generation fallback used', { attempts, finalId: id });
         break;
       }
     } while (!this.isIdAvailable(id));
@@ -752,7 +754,7 @@ export class SocketIOLikeServer extends EventEmitter {
   registerUser(socket: SocketIOLikeSocket): void {
     // Verificar si ya existe un usuario con este ID
     if (this.users.has(socket.id)) {
-      logger.warn(
+      defaultLogger.warn(
         `Intento de registrar usuario con ID duplicado: ${socket.id}. Desregistrando usuario anterior.`,
         {}
       );
@@ -789,7 +791,7 @@ export class SocketIOLikeServer extends EventEmitter {
     };
 
     this.users.set(socket.id, user);
-    logger.info(
+    defaultLogger.info(
       `Usuario registrado: ${socket.id}. Total usuarios: ${this.users.size}`,
       {}
     );
@@ -818,7 +820,7 @@ export class SocketIOLikeServer extends EventEmitter {
       }
 
       this.users.delete(socketId);
-      logger.info(
+      defaultLogger.info(
         `Usuario desregistrado: ${socketId}. Total usuarios: ${this.users.size}`,
         {}
       );
@@ -851,7 +853,7 @@ export class SocketIOLikeServer extends EventEmitter {
       user.rooms.add(room);
     }
 
-    logger.info(`Socket ${socketId} added to room ${room}. Room now has ${metadata.userCount} users`, {});
+    defaultLogger.info(`Socket ${socketId} added to room ${room}. Room now has ${metadata.userCount} users`, {});
   }
 
   // Remover de sala
@@ -871,9 +873,9 @@ export class SocketIOLikeServer extends EventEmitter {
       if (roomUsers.size === 0) {
         this.rooms.delete(room);
         this.roomMetadata.delete(room);
-        logger.info(`Room ${room} deleted (empty)`, {});
+        defaultLogger.info(`Room ${room} deleted (empty)`, {});
       } else {
-        logger.info(`Socket ${socketId} removed from room ${room}. Room now has ${roomUsers.size} users`, {});
+        defaultLogger.info(`Socket ${socketId} removed from room ${room}. Room now has ${roomUsers.size} users`, {});
       }
     }
 
@@ -1134,7 +1136,7 @@ export class SocketIOLikeServer extends EventEmitter {
     const roomMeta = this.roomMetadata.get(room);
     if (roomMeta) {
       roomMeta.metadata = { ...roomMeta.metadata, ...metadata };
-      logger.info(`Room ${room} metadata updated`, {});
+      defaultLogger.info(`Room ${room} metadata updated`, {});
     }
   }
 
@@ -1173,7 +1175,7 @@ export class SocketIOLikeServer extends EventEmitter {
         this.defaultNamespace = new Namespace('/');
         this.namespaces.set('/', this.defaultNamespace);
 
-        logger.info('Servidor SocketIO-like cerrado', {});
+        defaultLogger.info('Servidor SocketIO-like cerrado', {});
         if (callback) callback();
       });
       return;
@@ -1193,7 +1195,7 @@ export class SocketIOLikeServer extends EventEmitter {
     this.defaultNamespace = new Namespace('/');
     this.namespaces.set('/', this.defaultNamespace);
 
-    logger.info('Servidor SocketIO-like cerrado', {});
+    defaultLogger.info('Servidor SocketIO-like cerrado', {});
     if (callback) callback();
   }
 }

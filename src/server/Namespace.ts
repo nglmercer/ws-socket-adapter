@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Emitter } from '../Emitter.js';
 import { SocketIOLikeSocket } from './SocketIOLikeAdapter.js';
-import { logger,ExtendedLogger,defaultLogger } from '../logger/index.js';
+import { defaultLogger } from '../logger/index.js';
 
 // Enhanced interface for broadcast operator with better typing and additional methods
 interface BroadcastOperator {
@@ -30,7 +30,6 @@ export class Namespace extends EventEmitter {
   private middleware: Array<
     (socket: SocketIOLikeSocket, next: (err?: Error) => void) => void
   > = [];
-  private logger: ExtendedLogger;
 
   private eventMiddleware: Array<
     (
@@ -45,8 +44,7 @@ export class Namespace extends EventEmitter {
     super();
     this.name = name;
     this.emitter = new Emitter();
-    this.logger = defaultLogger;
-    this.logger.info('namespace_created', `Namespace created: ${name}`, {
+    defaultLogger.info('namespace_created', {message:`Namespace created: ${name}`}, {
       namespaceName: name,
     });
   }
@@ -70,10 +68,10 @@ export class Namespace extends EventEmitter {
     // Check if it's event middleware (4 parameters) or connection middleware (2 parameters)
     if (middleware.length === 4) {
       this.eventMiddleware.push(middleware);
-      logger.info(`Event middleware added to namespace ${this.name}`, {});
+      defaultLogger.info(`Event middleware added to namespace ${this.name}`, {});
     } else {
       this.middleware.push(middleware);
-      logger.info(`Connection middleware added to namespace ${this.name}`, {});
+      defaultLogger.info(`Connection middleware added to namespace ${this.name}`, {});
     }
     return this;
   }
@@ -111,7 +109,7 @@ export class Namespace extends EventEmitter {
     try {
       // Verificar si ya existe un socket con este ID en el namespace
       if (this.sockets.has(socket.id)) {
-        logger.warn(
+       defaultLogger.warn(
           `Socket con ID duplicado ${socket.id} en namespace ${this.name}. Removiendo socket anterior.`,
           {}
         );
@@ -132,9 +130,9 @@ export class Namespace extends EventEmitter {
       this.emitter.emit('connection', socket);
       super.emit('connection', socket);
 
-      logger.info(`Socket ${socket.id} added to namespace ${this.name}`, {});
+     defaultLogger.info(`Socket ${socket.id} added to namespace ${this.name}`, {});
     } catch (error) {
-      logger.error(
+     defaultLogger.error(
         `Error adding socket ${socket.id} to namespace ${this.name}:`,
         error
       );
@@ -159,7 +157,7 @@ export class Namespace extends EventEmitter {
       // Remove from namespace
       this.sockets.delete(socketId);
 
-      logger.info(`Socket ${socketId} removed from namespace ${this.name}`, {});
+     defaultLogger.info(`Socket ${socketId} removed from namespace ${this.name}`, {});
     }
   }
 
@@ -170,7 +168,7 @@ export class Namespace extends EventEmitter {
     }
 
     this.rooms.get(room)!.add(socketId);
-    logger.info(
+   defaultLogger.info(
       `Socket ${socketId} added to room ${room} in namespace ${this.name}`,
       {}
     );
@@ -187,7 +185,7 @@ export class Namespace extends EventEmitter {
         this.rooms.delete(room);
       }
 
-      logger.info(
+     defaultLogger.info(
         `Socket ${socketId} removed from room ${room} in namespace ${this.name}`,
         {}
       );

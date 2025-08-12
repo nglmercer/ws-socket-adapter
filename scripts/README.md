@@ -1,4 +1,100 @@
-# Scripts de Utilidad
+# Demostración de la API WebSocket
+
+Esta demostración muestra las capacidades principales de la API WebSocket con logging avanzado.
+
+## Archivos de la demostración
+
+- `server.js` - Servidor WebSocket con logging completo
+- `client.js` - Cliente simple para pruebas
+- `publish-npm.js` - Script para publicar en npm
+
+## Características demostradas
+
+### Servidor (`server.js`)
+- ✅ Conexiones múltiples de clientes
+- 📝 Logging avanzado con `defaultLogger.updateConfig()`
+- 📊 Estadísticas en tiempo real
+- 🔄 Broadcast entre clientes
+- 🏓 Eventos personalizados (ping/pong)
+- 💾 Guardado de logs en archivos
+- 🛡️ Manejo de errores
+
+### Cliente (`client.js`)
+- 🔗 Conexión automática al servidor
+- 📤 Envío de mensajes automáticos
+- 📥 Recepción y manejo de respuestas
+- 🔄 Reconexión automática
+- 🛑 Cierre graceful
+
+## Cómo ejecutar la demostración
+
+### 1. Compilar el proyecto
+```bash
+npm run build
+```
+
+### 2. Iniciar el servidor
+```bash
+node scripts/server.js
+```
+
+### 3. Conectar clientes (en terminales separadas)
+```bash
+node scripts/client.js
+```
+
+## Funcionalidades del Logger
+
+### Configuración dinámica
+```javascript
+// Actualizar configuración en tiempo de ejecución
+defaultLogger.updateConfig({
+  level: 'debug',
+  enableConsole: true,
+  enableFile: true,
+  logDirectory: './logs'
+});
+```
+
+### Tipos de logging disponibles
+```typescript
+export enum LogLevel {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3,
+  FATAL = 4,
+  SILENT = 5
+}
+```
+
+## Salida esperada
+
+### Servidor
+```
+🚀 Iniciando servidor de demostración...
+🌐 Servidor ejecutándose en puerto 3000
+📝 Logs guardándose en ./logs/
+🔗 Conecta un cliente con: node scripts/client.js
+✅ Cliente conectado: abc123 (Total: 1)
+📥 Mensaje de abc123: { type: 'message', data: 'Hola desde el cliente!' }
+```
+
+### Cliente
+```
+🚀 Cliente iniciado - Conectando a ws://localhost:3000
+✅ Conectado al servidor
+📤 Enviado: Mensaje automático - 14:30:15
+📥 Recibido: { message: 'Mensaje recibido correctamente', echo: {...} }
+```
+
+## Archivos de log
+
+Los logs se guardan automáticamente en `./logs/` con rotación automática.
+
+## Detener la demostración
+
+Presiona `Ctrl+C` para cerrar gracefully el servidor o cliente.
 
 ## publish-npm.js
 
