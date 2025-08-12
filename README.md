@@ -45,8 +45,11 @@ const server = new SocketIOLikeServer();
 defaultLogger.updateConfig({
   level: 'debug',
 });
+// silence the logger
+defaultLogger.silence();
+
 server.on('connection', (socket) => {
-  defaultLogger.log('Client connected:', socket.id);
+  defaultLogger.info('Client connected:', socket.id);
 
   socket.on('message', (data) => {
     console.log('Received:', data);

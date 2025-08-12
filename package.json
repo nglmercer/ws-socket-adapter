@@ -1,6 +1,6 @@
 {
   "name": "ws-socketio-adapter",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Socket.IO compatible WebSocket adapter for native WebSocket connections",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
