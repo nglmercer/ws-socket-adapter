@@ -202,10 +202,10 @@ export class SocketIOLikeSocket extends EventEmitter implements ISocket {
     this.ws.on('message', (message: RawData) => {
       try {
         const data = JSON.parse(message.toString());
-        console.log('data', data);
+        defaultLogger.debug('data', data);
         if (data.event && Array.isArray(data.payload)) {
           this.lastActivity = Date.now();
-          console.log('Mensaje entrante:', data.event, data.payload);
+          defaultLogger.debug('Mensaje entrante:', data.event, data.payload);
 
           // Ignorar eventos de callback-response para evitar bucles
           if (data.event === 'callback-response') {
